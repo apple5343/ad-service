@@ -1,0 +1,23 @@
+FROM golang:alpine as builder
+
+WORKDIR /app
+
+COPY . .
+
+RUN go mod download
+
+RUN go build -o main cmd/test/main.go
+
+RUN go build -o migrator cmd/migrator/main.go
+
+FROM alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/main .
+
+COPY --from=builder /app/migrator .
+
+COPY --from=builder /app/migrations ./migrations
+
+CMD ["sh", "-c", "./migrator && ./main"]

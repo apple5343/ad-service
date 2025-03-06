@@ -1,0 +1,59 @@
+version: '3.9'
+
+services:
+  postgres-test:
+    image: postgres
+    ports:
+      - "5431:5432"
+    env_file:
+      - .env.test
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  
+  redis-test:
+    image: redis
+    ports:
+      - "6378:6379"
+    env_file:
+      - .env.test
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    ports:
+      - ${HTTP_ADDRESS}:${HTTP_PORT}
+    env_file:
+      - .env.test
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+
+
+networks:
+  app-network:
+    driver: bridge
+    
+
+    

@@ -1,0 +1,81 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres
+    env_file:
+      - .env
+    networks:
+      - app-network
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  
+  redis:
+    image: redis
+    env_file:
+      - .env
+    networks:
+      - app-network
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v2.37.9
+    container_name: prometheus
+    networks:
+      - app-network
+    volumes:
+      - ./confs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana-oss:10.0.3
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./confs/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./confs/grafana/provisioning/dashboards/dashboard.yaml:/etc/grafana/provisioning/dashboards/dashboard.yaml
+      - ./confs/grafana/provisioning/datasources/default.yaml:/etc/grafana/provisioning/datasources/default.yaml
+  
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    networks:
+      - app-network 
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  postgres_data:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge
